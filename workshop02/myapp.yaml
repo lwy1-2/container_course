@@ -1,0 +1,81 @@
+---
+kind: ConfigMap
+apiVersion: v1
+
+metadata:
+    name: myapp-config
+    namespace: myns
+    labels:
+        app: myapp-config
+
+data:
+    db_user: root
+    db_host: mydb-svc.myns.svc.cluster.local
+
+---
+kind: Secret
+apiVersion: v1
+
+metadata:
+    name: myapp-deployment
+    namespace: myns
+    labels:
+        apps: myapp-deployment
+        version: v1
+
+spec: 
+    replicas: 4
+    selector:
+        matchLabels:
+            app: myapp-pod
+            version: v1
+    template:
+      metadata:
+          name: myapp-pod
+          labels:
+              app: myapp-pod
+              version: v1
+      spec:
+          containers:
+          - name: myapp
+            image: stackupiss/northwind-app:v1
+            imagePullPolicy: Always
+            env:
+            - name: DB_USER
+              value: root
+            - name: DB_HOST
+              valuefrom:
+                  configMapKeyRef:
+                      name: myapp-config
+                      key: db_host
+            - name: DB_PASSWORD
+              valuefrom:
+                  secretKeyRef:
+                      name: myapp-secret
+                      key: db_password
+            - name: INSTANCE_IP_ADDRESS
+              valueFrom:
+                  fieldRef:
+                    fieldPath: status.podIP
+            ports:
+            - name: myapp-port
+              containerPort: 3000
+
+---
+kind: Service
+apiVersion: v1
+
+metadata:
+    name: myapp-svc
+    namespace: myns
+    labels:
+        app: myapp-svc
+  
+spec:
+    type: LoadBalancer
+    selector:
+        app: myapp-pod
+    ports:
+    - name: myapp-svd-pod
+      port: 80
+      targetport: myapp-port
